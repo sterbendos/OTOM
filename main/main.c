@@ -18,6 +18,7 @@
 #include "attack_handshake.h"
 #include "attack_dos.h"
 #include "wps_attack.h"
+#include "rf_jammer.h"  // NEW: RF Jammer include
 
 #define WIFI_SSID "OTOM"
 #define WIFI_PASS "SHARDS123@a"
@@ -35,6 +36,7 @@ void stop_all_tools(void) {
     handshake_attack_stop();
     dos_attack_stop();
     wps_attack_stop();
+    rf_jammer_stop();  // NEW: Stop RF jammer too
     ESP_LOGI(TAG, "All tools stopped");
 }
 
@@ -107,14 +109,16 @@ esp_err_t otm_get_handler(httpd_req_t *req) {
     "<a href='/wifi_deauth' class='btn'>Deauth Attack</a>"
     "<a href='/wifi_pmkid' class='btn'>PMKID Capture</a>"
     "<a href='/wifi_handshake' class='btn'>Handshake Capture</a>"
-    "<a href='/wifi_dos' class='btn'>DoS Attack</a>"
-    "<a href='/wifi_wps' class='btn'>WPS Attack</a>"
     "</div>"
     "<div class='category'>"
     "<h2>🎭 Deception</h2>"
     "<a href='/wifi_beacon' class='btn'>Beacon Spam</a>"
     "<a href='/wifi_rogue' class='btn'>Rogue AP</a>"
     "<a href='/wifi_evil' class='btn'>Evil Portal</a>"
+    "</div>"
+    "<div class='category'>"
+    "<h2>📻 RF Jamming</h2>"
+    "<a href='/rf_jammer' class='btn'>🔴 RF Jammer Control</a>"
     "</div>"
     "<div class='category'>"
     "<h2>🤖 Detection</h2>"
@@ -128,7 +132,6 @@ esp_err_t otm_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t wifi_scan_handler(httpd_req_t *req) {
-    // DON'T stop all tools - let scan run independently
     ESP_LOGI(TAG, "WiFi scan requested");
     
     bool deep_scan = false;
@@ -188,14 +191,13 @@ void start_server(void) {
             {.uri = "/wifi_deauth", .method = HTTP_GET, .handler = wifi_deauth_handler, .user_ctx = NULL},
             {.uri = "/wifi_pmkid", .method = HTTP_GET, .handler = pmkid_attack_handler, .user_ctx = NULL},
             {.uri = "/wifi_handshake", .method = HTTP_GET, .handler = handshake_attack_handler, .user_ctx = NULL},
-            {.uri = "/wifi_dos", .method = HTTP_GET, .handler = dos_attack_handler, .user_ctx = NULL},
-            {.uri = "/wifi_wps", .method = HTTP_GET, .handler = wps_attack_handler, .user_ctx = NULL},
             {.uri = "/wifi_beacon", .method = HTTP_GET, .handler = wifi_beacon_handler, .user_ctx = NULL},
             {.uri = "/wifi_probes", .method = HTTP_GET, .handler = probe_sniffer_handler, .user_ctx = NULL},
             {.uri = "/wifi_packets", .method = HTTP_GET, .handler = packet_monitor_handler, .user_ctx = NULL},
             {.uri = "/wifi_rogue", .method = HTTP_GET, .handler = rogue_ap_handler, .user_ctx = NULL},
             {.uri = "/wifi_evil", .method = HTTP_GET, .handler = evil_portal_handler, .user_ctx = NULL},
-            {.uri = "/wifi_pwn", .method = HTTP_GET, .handler = pwnagotchi_detect_handler, .user_ctx = NULL}
+            {.uri = "/wifi_pwn", .method = HTTP_GET, .handler = pwnagotchi_detect_handler, .user_ctx = NULL},
+            {.uri = "/rf_jammer", .method = HTTP_GET, .handler = rf_jammer_handler, .user_ctx = NULL}  // NEW: RF Jammer handler
         };
         
         for (int i = 0; i < sizeof(uri_handlers) / sizeof(httpd_uri_t); i++) {
@@ -213,6 +215,10 @@ void app_main(void) {
     
     init_ap();
     vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    // NEW: Initialize RF Jammer hardware
+    rf_jammer_init();
+    
     start_server();
     
     ESP_LOGI(TAG, "System ready - Connect to SSID: %s", WIFI_SSID);
